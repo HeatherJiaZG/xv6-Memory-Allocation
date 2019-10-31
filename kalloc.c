@@ -114,7 +114,6 @@ struct {
   struct spinlock lock;
   int use_lock;
   struct run *freelist;
-  int currentIndex;
   struct frame allFrames[MAX_FRAME_NUMBER];
 } kmem;
 
@@ -174,12 +173,12 @@ freerange(void *vstart, void *vend)
 {
   char *p;
   p = (char*)PGROUNDUP((uint)vstart);
-  kmem.currentIndex = 0;
+  int currentIndex = 0;
   for(; p + PGSIZE <= (char*)vend; p += PGSIZE) {
-    kmem.allFrames[kmem.currentIndex].currentFrame = (struct run*) p;
+    kmem.allFrames[currentIndex].currentFrame = (struct run*) p;
     kfree(p);
-    ((struct run*)p)->frameIndex = kmem.currentIndex++;
-    if (kmem.currentIndex >= MAX_FRAME_NUMBER) {
+    ((struct run*)p)->frameIndex = currentIndex++;
+    if (currentIndex >= MAX_FRAME_NUMBER) {
       break;
     }
   }
@@ -218,7 +217,7 @@ kfree(char *v)
     //cprintf("Found its i: %d\n", i);
     r->frameIndex = i;
     kmem.allFrames[i].pid = -1;
-    kmem.allFrames[i].currentFrame = r;
+    //kmem.allFrames[i].currentFrame = r;
   }
 
   if (kmem.freelist == 0) {
@@ -282,6 +281,8 @@ int satisfiesRules(struct run *r, int pid) {
 char*
 kalloc(int pid)
 {
+  // TODO Try iterating to find frame index instead of storing
+  // TODO it in free block
   struct run *r;
   //cprintf("enter kalloc\n");
   if(kmem.use_lock)
@@ -299,11 +300,14 @@ kalloc(int pid)
   //cprintf("BLAH%d\n", r->next->frameIndex);
 
   // START ADDED
+  if (r == 0) {
+    return 0;
+  }
   if (satisfiesRules(r, pid)) {
     //cprintf("first\n");
     kmem.freelist = r->next;
     kmem.allFrames[r->frameIndex].pid = pid;
-    kmem.allFrames[r->frameIndex].currentFrame = r;
+    //kmem.allFrames[r->frameIndex].currentFrame = r;
     //cprintf("hiiiiii%d\n", r->next->frameIndex);
     if(kmem.use_lock)
       release(&kmem.lock);
@@ -319,7 +323,7 @@ kalloc(int pid)
     if (satisfiesRules(r, pid)) {
       prev->next=r->next;
       kmem.allFrames[r->frameIndex].pid = pid;
-      kmem.allFrames[r->frameIndex].currentFrame = r;
+      //kmem.allFrames[r->frameIndex].currentFrame = r;
       if(kmem.use_lock)
         release(&kmem.lock);
       //cprintf("physical: %x ---- pid: %d\n", (int) V2P(r), pid);
