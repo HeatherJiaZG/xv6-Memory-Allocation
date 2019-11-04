@@ -1,16 +1,25 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-#include "fs.h"
 
 int
 main(int argc, char *argv[])
 {
-    int frames[100];
-    int pids[100];
-    dump_physmem(frames, pids, 100);
-    for (int i = 0; i < 100; i++) {
-        printf(1, "Frame: %d | Pid: %d\n", frames[i], pids[i]);
+    int numframes = 100;
+    int* frames = malloc(numframes * sizeof(int));
+    int* pids = malloc(numframes * sizeof(int));
+    int flag = dump_physmem(frames, pids, numframes);
+    
+    if(flag == 0)
+    {
+        for (int i = 0; i < numframes; i++)
+          if(*(pids+i) > 0)
+            printf(0,"Frames: %x PIDs: %d\n", *(frames+i), *(pids+i));
     }
-  exit();
+    else// if(flag == -1)
+    {
+        printf(0,"error\n");
+    }
+    wait();
+    exit();
 }
